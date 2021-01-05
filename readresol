@@ -27,6 +27,7 @@ my $logFilePath   = "/var/log/";                           # log file path
 my $logFile       = $logFilePath . $daemonName . ".log";
 my $pidFilePath   = "/var/run/";                           # PID file path
 my $pidFile       = $pidFilePath . $daemonName . ".pid";
+my $homematicPath = "http://homematic.minix.local";
 
 $PortName = "/dev/ttyUSB0";
 $verbose = 1;
@@ -150,7 +151,7 @@ until ($dieNow) {
     my $cs = ",";
     my $hmdata = $temp1 . $cs . $temp2 . $cs . $temp3 . $cs . $pusp1 . $cs . $pusp2 . $cs . $rtim1 . $cs . $rtim2;
     my $hmiseids = "3144,3077,3145,7490,7491,7492,7493";
-    my $content = get("http://homematic.minixint.at/config/xmlapi/statechange.cgi?ise_id=" . $hmiseids . "&new_value=" . $hmdata);
+    my $content = get($homematicPath . "/config/xmlapi/statechange.cgi?ise_id=" . $hmiseids . "&new_value=" . $hmdata);
     die "problem setting variable Solarkollektor Temperatur" unless defined $content;
 		my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 	  $mon++;
