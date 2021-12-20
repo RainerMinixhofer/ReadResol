@@ -29,7 +29,7 @@ my $pidFilePath   = "/var/run/";                           # PID file path
 my $pidFile       = $pidFilePath . $daemonName . ".pid";
 my $homematicPath = "http://homematic.minix.local";
 
-$PortName = "/dev/ttyUSB0";
+$PortName = "/dev/RESOL";
 $verbose = 1;
 $STALL_DEFAULT = 20; # how many seconds to wait for new input
 
@@ -38,10 +38,10 @@ use POSIX qw(setsid);
 chdir '/';
 umask 0;
 open STDIN,  '/dev/null'   or die "Can't read /dev/null: $!";
-open STDOUT, '>>/dev/null' or die "Can't write to /dev/null: $!";
-open STDERR, '>>/dev/null' or die "Can't write to /dev/null: $!";
-defined( my $pid = fork ) or die "Can't fork: $!";
-exit if $pid;
+#open STDOUT, '>>/dev/null' or die "Can't write to /dev/null: $!";
+#open STDERR, '>>/dev/null' or die "Can't write to /dev/null: $!";
+#defined( my $pid = fork ) or die "Can't fork: $!";
+#exit if $pid;
 
 # dissociate this process from the controlling terminal that started it and stop being part
 # of whatever process group this process was a part of.
