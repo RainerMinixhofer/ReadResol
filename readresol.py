@@ -25,6 +25,9 @@ LOGTOSTDOUT = False
 #LOGFILE = '/home/rainer/Dokumente/readresol-code/readresol.log'
 HOMEMATICPATH = "http://homematic.minix.local"
 HMISEIDS = "3144,3077,3145,7490,7491,7492,7493"
+IOBROKERPATH = "http://telemetry.minix.local:8087"
+IOBROKERDIR = "0_userdata.0.SolarThermie"
+IOBROKERDPTS = ["Solarkollektor_Temperatur", "Schwimmbad_Temperatur", "Boiler_Temperatur", "Solarpumpengeschwindigkeit", "Solarventil", "Laufzeit_Solarpumpe", "Laufzeit_Solarventil"]
 PORTNAME = '/dev/RESOL'
 TIMEOUT = 60*2 # Timeout if no serial data collected within 2 minutes
 
@@ -32,6 +35,7 @@ loghandlers = [logging.FileHandler(LOGFILE)]
 if LOGTOSTDOUT:
     loghandlers.append(logging.StreamHandler())
 logging.basicConfig(level=logging.INFO, handlers=loghandlers)
+#logging.basicConfig(level=logging.DEBUG, handlers=loghandlers)
 
 def write_to_homematic(data):
     """
@@ -56,6 +60,30 @@ def write_to_homematic(data):
                         + HMISEIDS + "&new_value=" + data
         http.request('GET', request)
         logging.debug('Data written to Raspberrymatic.')
+        logging.debug('GET request: %s',request)
+    except IOError:
+        logging.error('URLError. Trying again in next time interval.')
+
+def write_to_iobroker(data):
+    """
+    Writes measurement data from meternr into iobroker using the simple-API and
+    the datapoints specified in IOBROKERDPTS
+
+    Parameters
+    ----------
+    iobdata : String
+        String to be written into iobroker with simple-API call
+
+    Returns
+    -------
+    None.
+
+    """
+    try:
+        http = urllib3.PoolManager()
+        request = IOBROKERPATH + "/setBulk?" + data
+        http.request('GET', request)
+        logging.debug('Data written to IOBroker.')
         logging.debug('GET request: %s',request)
     except IOError:
         logging.error('URLError. Trying again in next time interval.')
@@ -126,7 +154,7 @@ while time.time() < timeout_start + TIMEOUT:
                                  chksum21, chksum22, chksum31, chksum32, chksum41, chksum42, \
                                  unknown)
                     #Write temperatures, solar pump speed, solar valve setting,
-                    #and runtimes to homematic
+                    #and runtimes to homematic and iobroker
                     hmdata = ('%(T1).1f,%(T2).1f,%(T3).1f,'
                               '%(PUMPSPEED1)d,%(PUMPSPEED2)d,'
                               '%(RUNTIME1)d,%(RUNTIME2)d') % \
@@ -134,6 +162,9 @@ while time.time() < timeout_start + TIMEOUT:
                          "PUMPSPEED1": pusp1,"PUMPSPEED2": pusp2,
                          "RUNTIME1": rtim1, "RUNTIME2": rtim2}
                     write_to_homematic(hmdata)
+                    iobdpts = [str(IOBROKERDIR + "." + IOBROKERDPTS[i] + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])) for i in range(len(IOBROKERDPTS))]
+                    iobdata = '&'.join(iobdpts)
+                    write_to_iobroker(iobdata)
                 else:
                     logging.error('Serial package header %s incorrect, skipping data', header)
     except KeyboardInterrupt:
