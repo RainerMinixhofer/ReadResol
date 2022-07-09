@@ -162,6 +162,11 @@ while time.time() < timeout_start + TIMEOUT:
                          "PUMPSPEED1": pusp1,"PUMPSPEED2": pusp2,
                          "RUNTIME1": rtim1, "RUNTIME2": rtim2}
                     write_to_homematic(hmdata)
+                    #Set Solarventil to false if pusp2==0 otherwise to true
+                    if pusp2 == 0:
+                        pusp2 = false
+                    else:
+                        pusp2 = true
                     iobdpts = [str(IOBROKERDIR + "." + IOBROKERDPTS[i] + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])) for i in range(len(IOBROKERDPTS))]
                     iobdata = '&'.join(iobdpts)
                     write_to_iobroker(iobdata)
