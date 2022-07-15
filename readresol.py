@@ -16,26 +16,31 @@ pump speed and pump runtime data
 import sys
 import time
 import binascii
-import logging #pylint: disable = E0401
-import serial #pylint: disable = E0401
-import urllib3 #pylint: disable=E0401
+import logging
+import logging.handlers as handlers
+import serial
+import urllib3
 
 LOGFILE = '/var/log/readresol.log'
 LOGTOSTDOUT = False
+LOGTARGET = ['homematic', 'iobroker']
+#LOGTARGET = ['iobroker', 'homematic']
 #LOGFILE = '/home/rainer/Dokumente/readresol-code/readresol.log'
 HOMEMATICPATH = "http://homematic.minix.local"
-HMISEIDS = "3144,3077,3145,7490,7491,7492,7493"
+HMISEIDS = "3144,26625,3145,7490,7491,7492,7493"
 IOBROKERPATH = "http://telemetry.minix.local:8087"
 IOBROKERDIR = "0_userdata.0.SolarThermie"
 IOBROKERDPTS = ["Solarkollektor_Temperatur", "Schwimmbad_Temperatur", "Boiler_Temperatur", "Solarpumpengeschwindigkeit", "Solarventil", "Laufzeit_Solarpumpe", "Laufzeit_Solarventil"]
 PORTNAME = '/dev/RESOL'
 TIMEOUT = 60*2 # Timeout if no serial data collected within 2 minutes
-
-loghandlers = [logging.FileHandler(LOGFILE)]
+loghandlers = [handlers.TimedRotatingFileHandler(LOGFILE, when='D', interval = 7)]
 if LOGTOSTDOUT:
     loghandlers.append(logging.StreamHandler())
-logging.basicConfig(level=logging.INFO, handlers=loghandlers)
-#logging.basicConfig(level=logging.DEBUG, handlers=loghandlers)
+logging.basicConfig(level=logging.INFO,\
+                    format='%(asctime)s %(levelname)-8s %(message)s',\
+                    handlers=loghandlers,\
+                    datefmt='%Y-%m-%d %H:%M:%S')
+#logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',level=logging.DEBUG,datefmt='%Y-%m-%d %H:%M:%S')
 
 def write_to_homematic(data):
     """
@@ -154,22 +159,23 @@ while time.time() < timeout_start + TIMEOUT:
                                  chksum21, chksum22, chksum31, chksum32, chksum41, chksum42, \
                                  unknown)
                     #Write temperatures, solar pump speed, solar valve setting,
-                    #and runtimes to homematic and iobroker
-                    hmdata = ('%(T1).1f,%(T2).1f,%(T3).1f,'
-                              '%(PUMPSPEED1)d,%(PUMPSPEED2)d,'
-                              '%(RUNTIME1)d,%(RUNTIME2)d') % \
-                        {"T1": temp1, "T2": temp2, "T3": temp3,
-                         "PUMPSPEED1": pusp1,"PUMPSPEED2": pusp2,
-                         "RUNTIME1": rtim1, "RUNTIME2": rtim2}
-                    write_to_homematic(hmdata)
+                    #and runtimes to homematic
+                    if 'homematic' in LOGTARGET:
+                        hmdata = ('%(T1).1f,%(T2).1f,%(T3).1f,'
+                                '%(PUMPSPEED1)d,%(PUMPSPEED2)d,'
+                                '%(RUNTIME1)d,%(RUNTIME2)d') % \
+                            {"T1": temp1, "T2": temp2, "T3": temp3,
+                            "PUMPSPEED1": pusp1,"PUMPSPEED2": pusp2,
+                            "RUNTIME1": rtim1, "RUNTIME2": rtim2}
+                        write_to_homematic(hmdata)
+                    #Write temperatures, solar pump speed, solar valve setting,
+                    #and runtimes to iobroker
                     #Set Solarventil to false if pusp2==0 otherwise to true
-                    if pusp2 == 0:
-                        pusp2 = false
-                    else:
-                        pusp2 = true
-                    iobdpts = [str(IOBROKERDIR + "." + IOBROKERDPTS[i] + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])) for i in range(len(IOBROKERDPTS))]
-                    iobdata = '&'.join(iobdpts)
-                    write_to_iobroker(iobdata)
+                    if 'iobroker' in LOGTARGET:
+                        pusp2 = (pusp2 != 0)
+                        iobdpts = [str(IOBROKERDIR + "." + IOBROKERDPTS[i] + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])) for i in range(len(IOBROKERDPTS))]
+                        iobdata = '&'.join(iobdpts)
+                        write_to_iobroker(iobdata)
                 else:
                     logging.error('Serial package header %s incorrect, skipping data', header)
     except KeyboardInterrupt:
