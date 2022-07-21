@@ -173,9 +173,12 @@ while time.time() < timeout_start + TIMEOUT:
                     #Set Solarventil to false if pusp2==0 otherwise to true
                     if 'iobroker' in LOGTARGET:
                         pusp2 = (pusp2 != 0)
-                        iobdpts = [str(IOBROKERDIR + "." + IOBROKERDPTS[i] + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])) for i in range(len(IOBROKERDPTS))]
+                        iobdpts = [IOBROKERDIR + "." + dpt + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i]) for i,dpt in enumerate(IOBROKERDPTS)]
                         iobdata = '&'.join(iobdpts)
                         write_to_iobroker(iobdata)
+#                        for i,dpt in enumerate(IOBROKERDPTS):
+#                            iobdata = IOBROKERDIR + "." + dpt + "?value=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])
+#                            write_to_iobroker(iobdata)
                 else:
                     logging.error('Serial package header %s incorrect, skipping data', header)
     except KeyboardInterrupt:
