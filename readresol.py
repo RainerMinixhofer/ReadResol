@@ -171,8 +171,10 @@ while time.time() < timeout_start + TIMEOUT:
                     #Write temperatures, solar pump speed, solar valve setting,
                     #and runtimes to iobroker
                     #Set Solarventil to false if pusp2==0 otherwise to true
+                    #We convert the Solarventil state already to a string and lowercase since the uppercase
+                    #values True and False are interpreted as strings leading to info messages in the iobroker log
                     if 'iobroker' in LOGTARGET:
-                        pusp2 = (pusp2 != 0)
+                        pusp2 = str(pusp2 != 0).lower()
                         iobdpts = [IOBROKERDIR + "." + dpt + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i]) for i,dpt in enumerate(IOBROKERDPTS)]
                         iobdata = '&'.join(iobdpts)
                         write_to_iobroker(iobdata)
