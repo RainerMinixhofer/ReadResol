@@ -4,6 +4,6 @@ After=multi-user.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=python3 /home/rainer/Documents/ReadResol/readresol.py
+ExecStart=python3 /home/rainer/Projects/ReadResol/readresol.py
 [Install]
 WantedBy=multi-user.target
