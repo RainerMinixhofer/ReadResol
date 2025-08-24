@@ -40,7 +40,9 @@ Copy provided systemd service file 'powermeter.service.template' to systemd serv
 Enable and start service with
 
 > sudo systemctl daemon-reload
+> 
 > sudo systemctl enable readresol.service
+>
 > sudo systemctl start readresol.service
 
 Check successful activation with
