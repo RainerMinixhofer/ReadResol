@@ -1,0 +1,9 @@
+[Unit]
+Description=Read Resol Solar Controller data
+After=multi-user.target
+[Service]
+Type=simple
+Restart=always
+ExecStart=python3 /home/rainer/Documents/ReadResol/readresol.py
+[Install]
+WantedBy=multi-user.target

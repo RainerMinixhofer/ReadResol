@@ -31,7 +31,18 @@ Alternatively to a reboot one can issue
 
 > sudo udevadm control --reload-rules && sudo udevadm trigger
 
-## Daemonizing script
+## Run script as service
 
-Since the code has been transferred from Perl to Python, the architecture has been moved to the much simpler and newer systemd implementation as well.
-Please refer to e.g. the article [Setup a python script as a service through systemctl/systemd](https://medium.com/codex/setup-a-python-script-as-a-service-through-systemctl-systemd-f0cc55a42267) for further details how to do this.
+Copy provided systemd service file 'powermeter.service.template' to systemd service file folder
+
+> sudo cp readresol.service.template /lib/systemd/system/readresol.service
+
+Enable and start service with
+
+> sudo systemctl daemon-reload
+> sudo systemctl enable readresol.service
+> sudo systemctl start readresol.service
+
+Check successful activation with
+
+> sudo systemctl status readresol.service
