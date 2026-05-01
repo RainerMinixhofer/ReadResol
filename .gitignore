@@ -1,0 +1,9 @@
+# Local config — contains real hostnames and ISE-IDs, never commit
+config.py
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Generated systemd service file
+readresol.service

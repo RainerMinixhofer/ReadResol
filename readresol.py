@@ -20,20 +20,19 @@ import logging
 import logging.handlers as handlers
 import serial
 import urllib3
+import urllib.parse
+from urllib3.exceptions import HTTPError
+
+from config import HOMEMATICPATH, HMISEIDS, IOBROKERPATH, IOBROKERDIR
 
 LOGFILE = '/var/log/readresol.log'
 LOGTOSTDOUT = False
 LOGTARGET = ['homematic', 'iobroker']
-#LOGTARGET = ['iobroker', 'homematic']
-#LOGFILE = '/home/rainer/Dokumente/readresol-code/readresol.log'
-HOMEMATICPATH = "http://homematic.ps.minixhofer.com"
-HMISEIDS = "3144,26625,3145,7490,7491,7492,7493"
-IOBROKERPATH = "http://server2.ps.minixhofer.com:8087"
-IOBROKERDIR = "0_userdata.0.SolarThermie"
 IOBROKERDPTS = ["Solarkollektor_Temperatur", "Schwimmbad_Temperatur", "Boiler_Temperatur", "Solarpumpengeschwindigkeit", "Solarventil", "Laufzeit_Solarpumpe", "Laufzeit_Solarventil"]
 PORTNAME = '/dev/RESOL'
 TIMEOUT = 60*2 # Timeout if no serial data collected within 2 minutes
-loghandlers = [handlers.TimedRotatingFileHandler(LOGFILE, when='D', interval = 7)]
+HTTP_TIMEOUT = urllib3.Timeout(connect=2.0, read=2.0)
+loghandlers: list[logging.Handler] = [handlers.TimedRotatingFileHandler(LOGFILE, when='D', interval = 7)]
 if LOGTOSTDOUT:
     loghandlers.append(logging.StreamHandler())
 logging.basicConfig(level=logging.INFO,\
@@ -41,6 +40,15 @@ logging.basicConfig(level=logging.INFO,\
                     handlers=loghandlers,\
                     datefmt='%Y-%m-%d %H:%M:%S')
 #logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',level=logging.DEBUG,datefmt='%Y-%m-%d %H:%M:%S')
+
+http = urllib3.PoolManager(timeout=HTTP_TIMEOUT)
+
+def is_valid_vbus_frame(frame):
+    """Validate one 6-byte VBus frame checksum."""
+    if len(frame) != 6:
+        return False
+    expected_checksum = (0x7F - (sum(frame[:5]) & 0x7F)) & 0x7F
+    return frame[5] == expected_checksum
 
 def write_to_homematic(data):
     """
@@ -60,24 +68,26 @@ def write_to_homematic(data):
 
     """
     try:
-        http = urllib3.PoolManager()
         request = HOMEMATICPATH + "/config/xmlapi/statechange.cgi?ise_id=" \
                         + HMISEIDS + "&new_value=" + data
         http.request('GET', request)
         logging.debug('Data written to Raspberrymatic.')
         logging.debug('GET request: %s',request)
-    except IOError:
+    except (HTTPError, OSError) as err:
+        logging.error('Raspberrymatic write failed: %s', err)
         logging.error('URLError. Trying again in next time interval.')
 
-def write_to_iobroker(data):
+def write_to_iobroker(datapoint, value):
     """
     Writes measurement data from meternr into iobroker using the simple-API and
     the datapoints specified in IOBROKERDPTS
 
     Parameters
     ----------
-    iobdata : String
-        String to be written into iobroker with simple-API call
+    datapoint : String
+        Full ioBroker datapoint path
+    value : String
+        Value to be written into ioBroker
 
     Returns
     -------
@@ -85,12 +95,13 @@ def write_to_iobroker(data):
 
     """
     try:
-        http = urllib3.PoolManager()
-        request = IOBROKERPATH + "/setBulk?" + data
+        request = (IOBROKERPATH + "/set/" + urllib.parse.quote(datapoint, safe='')
+                   + "?value=" + urllib.parse.quote(str(value), safe=''))
         http.request('GET', request)
         logging.debug('Data written to IOBroker.')
         logging.debug('GET request: %s',request)
-    except IOError:
+    except (HTTPError, OSError) as err:
+        logging.error('ioBroker write failed: %s', err)
         logging.error('URLError. Trying again in next time interval.')
 
 # 9600 baud, 8 databits, no parity, 1 stopbit and no handshake (rtscts=False)
@@ -98,7 +109,7 @@ def write_to_iobroker(data):
 ser = serial.Serial(port=PORTNAME,baudrate=9600, bytesize=serial.EIGHTBITS, timeout=10, \
                     parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, rtscts=False)
 
-ser.flushInput()
+ser.reset_input_buffer()
 
 timeout_start = time.time()
 
@@ -115,6 +126,13 @@ while time.time() < timeout_start + TIMEOUT:
                                             'aa 10 00 21 32 10 00 01 04 07')):
                 #Read data part of the packet
                     ser_bytes = ser.read(24)
+                    if len(ser_bytes) != 24:
+                        logging.warning('Incomplete payload (%d/24 bytes), skipping packet', len(ser_bytes))
+                        continue
+                    frames = [ser_bytes[i:i + 6] for i in range(0, 24, 6)]
+                    if not all(is_valid_vbus_frame(frame) for frame in frames):
+                        logging.warning('Checksum validation failed, skipping packet')
+                        continue
                     logging.debug('Data packet: %s', binascii.hexlify(ser_bytes, ','))
                     timeout_start = time.time() # Reset Timeout
                     chksum11 = ser_bytes[5]
@@ -174,13 +192,17 @@ while time.time() < timeout_start + TIMEOUT:
                     #We convert the Solarventil state already to a string and lowercase since the uppercase
                     #values True and False are interpreted as strings leading to info messages in the iobroker log
                     if 'iobroker' in LOGTARGET:
-                        pusp2 = str(pusp2 != 0).lower()
-                        iobdpts = [IOBROKERDIR + "." + dpt + "=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i]) for i,dpt in enumerate(IOBROKERDPTS)]
-                        iobdata = '&'.join(iobdpts)
-                        write_to_iobroker(iobdata)
-#                        for i,dpt in enumerate(IOBROKERDPTS):
-#                            iobdata = IOBROKERDIR + "." + dpt + "?value=" + str([temp1, temp2, temp3, pusp1, pusp2, rtim1, rtim2][i])
-#                            write_to_iobroker(iobdata)
+                        datapoint_values = [
+                            temp1,
+                            temp2,
+                            temp3,
+                            pusp1,
+                            str(pusp2 != 0).lower(),
+                            rtim1,
+                            rtim2,
+                        ]
+                        for i, dpt in enumerate(IOBROKERDPTS):
+                            write_to_iobroker(IOBROKERDIR + "." + dpt, datapoint_values[i])
                 else:
                     logging.error('Serial package header %s incorrect, skipping data', header)
     except KeyboardInterrupt:
