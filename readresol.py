@@ -28,7 +28,8 @@ from config import HOMEMATICPATH, HMISEIDS, IOBROKERPATH, IOBROKERDIR
 LOGFILE = '/var/log/readresol.log'
 LOGTOSTDOUT = False
 LOGTARGET = ['homematic', 'iobroker']
-IOBROKERDPTS = ["Solarkollektor_Temperatur", "Schwimmbad_Temperatur", "Boiler_Temperatur", "Solarpumpengeschwindigkeit", "Solarventil", "Laufzeit_Solarpumpe", "Laufzeit_Solarventil"]
+IOBROKERDPTS = ["Solarkollektor_Temperatur", "Schwimmbad_Temperatur", "Boiler_Temperatur", "Solarpumpengeschwindigkeit", 
+                "Solarventil", "Laufzeit_Solarpumpe", "Laufzeit_Solarventil"]
 PORTNAME = '/dev/RESOL'
 TIMEOUT = 60*2 # Timeout if no serial data collected within 2 minutes
 HTTP_TIMEOUT = urllib3.Timeout(connect=2.0, read=2.0)
